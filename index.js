@@ -1,5 +1,5 @@
 const express = require('express');
-const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
+const { RtcTokenBuilder, RtcRole } = require('agora-token');
 const {readFile} = require("fs");
 const https = require('https');
 
@@ -33,6 +33,7 @@ app.get('/generateToken', (req, res) => {
         channelName,
         uid,
         role,
+        expirationTimeInSeconds,
         privilegeExpiredTs
     );
 
