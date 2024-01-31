@@ -1,82 +1,55 @@
-const WebSocket = require('ws');
-const http = require('http');
+const express = require('express');
+const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
+const {readFile} = require("fs");
+const https = require('https');
 
-const server = http.createServer();
-const wss = new WebSocket.Server({ port: 8000 });
-const clients = new Map();
+const app = express();
+const port = 8080;
 
-function get_all_users() {
-    return Array.from(clients.keys()).map(username => ({username}))
-}
+app.get('/generateToken', (req, res) => {
+    const appId = 'bcf7d096b0e54d6d906e12879d9cec7e';
+    const appCertificate = 'd58f7220740b4c92b082f1239a9063fb';
+    const channelName = req.query.channelName || 'defaultChannel';
+    const uid = req.query.uid || 0; // If 0, Agora server will assign a uid
+    const role = RtcRole.PUBLISHER;
 
-wss.on('connection', (ws) => {
+    const expirationTimeInSeconds = 3600;
 
-    // handle incoming messages from client
-    ws.on('message', (message) => {
-        console.log(`Received message: ${message}`);
-         if (message.toString().substring(0, 5) === '/all:') {
-             for (const user of clients.values()) {
-                 if (user !== ws) {
-                     user.send(message.toString().substring(5));
-                 }
-             }
-         } else if (message.toString().substring(0, 8) === '/others:') {
-            clients.forEach((client) => {
-                if (client !== ws) {
-                    client.send(JSON.stringify({
-                        user: ws.toString(),
-                        message: message.toString().substring(8)
-                    }));
-                }
-            });
-        } else if (message.toString() === 'get_users') {
-             console.log('Someone tried to get users...')
-             console.log(JSON.stringify(get_all_users()))
-             ws.send(JSON.stringify(get_all_users()));
-         } else if (message.toString().substring(0, 4) === 'Call') {
-             const user = clients.get(message.toString().substring(4));
-             
-         } else if (message.toString().substring(0, 10) === 'New client') {
-             const name = message.toString().substring(11);
-             console.log(`Client '${name}' connected!`);
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
 
-             // Save the name along with the WebSocket connection in the object
-             clients.set(name, ws);
+    const key = RtcTokenBuilder.buildTokenWithUid(
+        appId,
+        appCertificate,
+        channelName,
+        uid,
+        role,
+        privilegeExpiredTs
+    );
 
-             // send welcome message to the new client
-             ws.send(`Hello, ${name}!`);
-
-             // Notify existing clients about the new client joining
-             // for (const user of clients.values()) {
-             //     if (user !== ws) {
-             //         user.send(`${name} has joined!`);
-             //     }
-             // }
-         } else {
-             ws.send('Unknown command')
-        }
-    });
-
-    // handle client disconnection
-    ws.on('close', () => {
-        const disconnectedClient = clients.get(ws);
-        const clientName = disconnectedClient
-        console.log(`${disconnectedClient} disconnected.`);
-
-        // Remove the client from the Map
-        clients.delete(ws);
-
-        // Notify the remaining clients about the disconnection
-        for (const [name, user] of clients.entries()) {
-            if (user !== ws) {
-                user.send(`${name} disconnected!`);
-            }
-        }
-    });
+    res.json({ token: key });
 });
 
+app.get('/.well-known/assetslinks.json', (req, res) => {
+    res.json(
+        [{
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "com.example.app",
+                "sha256_cert_fingerprints":
+                    ["9A:13:C2:F3:9D:66:00:FE:7A:53:A7:D2:0D:F0:A5:45:8B:E2:D2:CE:B9:30:6D:F0:15:65:BF:48:AF:CC:6D:DF"]
+            }
+        }]
+    )
+});
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`WebSocket server is listening on port ${PORT}`);
+app.get('/test', (req, res) => {
+    res.json({
+        hi: 'Hello!'
+    })
+})
+
+app.listen(port, () => {
+    console.log(`Server is running at http://localhost:${port}`);
 });
