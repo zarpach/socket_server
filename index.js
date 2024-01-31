@@ -6,6 +6,10 @@ const https = require('https');
 const app = express();
 const port = 8080;
 
+app.get('/', (req, res) => {
+    res.send("Express on Vercel");
+})
+
 app.get('/generateToken', (req, res) => {
     const appId = 'bcf7d096b0e54d6d906e12879d9cec7e';
     const appCertificate = 'd58f7220740b4c92b082f1239a9063fb';
@@ -53,3 +57,6 @@ app.get('/test', (req, res) => {
 app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
 });
+
+
+module.exports = app;
